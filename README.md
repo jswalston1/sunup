@@ -39,7 +39,10 @@ push to prod ──► fast-forward check + gates ──► JOE APPROVES ──�
 - **Rollback is one click.** Actions -> Roll back production -> paste a
   production deployment ID (from `wrangler pages deployment list
   --project-name sunup-finder --environment production`), or dashboard ->
-  Deployments -> ... -> Rollback. Then fix forward on `main`.
+  Deployments -> ... -> Rollback. Then fix forward on `main`. Dispatch the
+  workflow from the `prod` branch — the production environment only allows
+  deployments from prod, so a dispatch from main is rejected. The rollback
+  verify step is liveness-only: pre-pipeline builds have no version.json.
 
 ## Repo layout
 
@@ -123,6 +126,12 @@ account — so the real isolation is GitHub-side: the prod token lives only
 in the `production` environment, readable only by jobs that declare it
 after Joe's approval. Rotate both tokens every 90 days; if one is ever
 suspected exposed, revoke and reissue immediately (tokens are shown once).
+
+Run control (dispatching or re-running a workflow, approving a deployment)
+cannot be done from the VM: the fine-grained PAT used for pushes has no
+scope for it (every such call returns 403). Those steps go through the
+GitHub browser UI. That is an accepted limitation, not a bug to work
+around by widening the token.
 
 ## Setup (run once, in order)
 

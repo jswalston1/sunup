@@ -132,11 +132,23 @@ jobs:
 
       # Tag push does not re-trigger this workflow (it only triggers on
       # pushes to the prod branch, and a tag push is not a branch push).
+      # Idempotent: a re-run of the same run must not fail after a
+      # successful deploy just because the tag already exists.
       - name: Tag prod-<date>-<short-sha>
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           TAG="prod-$(date -u +%Y-%m-%d)-${GITHUB_SHA:0:7}"
-          git tag "$TAG" "${GITHUB_SHA}"
-          git push origin "$TAG"
-          echo "Tagged $TAG"
+          EXISTING="$(git ls-remote origin "refs/tags/$TAG" | awk '{print $1}')"
+          if [ -n "$EXISTING" ]; then
+            if [ "$EXISTING" = "$GITHUB_SHA" ]; then
+              echo "Tag $TAG already points at ${GITHUB_SHA:0:7}; skipping"
+            else
+              echo "FAIL: tag $TAG already exists and points at ${EXISTING:0:7}, not ${GITHUB_SHA:0:7}"
+              exit 1
+            fi
+          else
+            git tag "$TAG" "${GITHUB_SHA}"
+            git push origin "$TAG"
+            echo "Tagged $TAG"
+          fi
