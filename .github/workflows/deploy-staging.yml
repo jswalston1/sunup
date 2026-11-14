@@ -65,8 +65,11 @@ jobs:
           accountId: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
           gitHubToken: ${{ secrets.GITHUB_TOKEN }}
           # --branch=main makes this a PREVIEW deployment, never production.
-          # --commit-hash / --commit-message tie it to this exact commit.
-          command: pages deploy ./public --project-name=sunup-finder --branch=main --commit-hash=${{ github.sha }} --commit-message="${{ github.event.head_commit.message }}"
+          # --commit-hash ties it to this exact commit. No --commit-message:
+          # a multi-line commit message breaks wrangler's argument parsing
+          # (Nov 13: the gitleaks fix commit's body words were passed to
+          # wrangler as unknown arguments and failed the step).
+          command: pages deploy ./public --project-name=sunup-finder --branch=main --commit-hash=${{ github.sha }}
 
       - name: Smoke-check the staging URL
         run: ./scripts/smoke.sh "https://main.sunup-finder.pages.dev" "${{ github.sha }}"
