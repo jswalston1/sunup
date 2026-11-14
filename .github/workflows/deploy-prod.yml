@@ -79,7 +79,7 @@ jobs:
       - name: Link check (static files)
         uses: lycheeverse/lychee-action@e7477775783ea5526144ba13e8db5eec57747ce8 # v2
         with:
-          args: --no-progress --format detailed --timeout 20 --max-retries 1 --exclude 'https://colonywestccpc\.ezlinksgolf\.com/.*' --exclude 'https://palmbeachnational\.com/.*' --exclude 'https://country-club-of-coral-springs\.book\.teeitup\.com/.*' public/index.html public/privacy.html public/terms.html
+          args: --no-progress --format detailed --timeout 20 --max-retries 1 --exclude 'https://colonywestccpc\.ezlinksgolf\.com/.*' --exclude 'https://palmbeachnational\.com/.*' --exclude 'https://country-club-of-coral-springs\.book\.teeitup\.com/.*' --root-dir public public/index.html public/privacy.html public/terms.html
           fail: true
 
   deploy:

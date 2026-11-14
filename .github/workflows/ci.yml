@@ -45,5 +45,5 @@ jobs:
           # - country-club-of-coral-springs.book.teeitup.com: dead link
           #   (QA-045) — fix awaits Joe's call; excluded so a known
           #   pre-existing issue cannot block the pipeline itself.
-          args: --no-progress --format detailed --timeout 20 --max-retries 1 --exclude 'https://colonywestccpc\.ezlinksgolf\.com/.*' --exclude 'https://palmbeachnational\.com/.*' --exclude 'https://country-club-of-coral-springs\.book\.teeitup\.com/.*' public/index.html public/privacy.html public/terms.html
+          args: --no-progress --format detailed --timeout 20 --max-retries 1 --exclude 'https://colonywestccpc\.ezlinksgolf\.com/.*' --exclude 'https://palmbeachnational\.com/.*' --exclude 'https://country-club-of-coral-springs\.book\.teeitup\.com/.*' --root-dir public public/index.html public/privacy.html public/terms.html
           fail: true
