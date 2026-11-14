@@ -1,0 +1,62 @@
+# Roll back production — manual only (workflow_dispatch).
+#
+# Instant rollback to a previous PRODUCTION deployment via the Cloudflare
+# Pages API. Wrangler has no rollback command, so this workflow is the
+# one-click path; the dashboard (Deployments -> ... -> Rollback) is the
+# break-glass alternative. Only a successful production deployment is a
+# valid rollback target — preview deployments are not.
+#
+# The job runs in the `production` environment, so it reads the production
+# token AND goes through the same required-reviewer approval as a deploy.
+# Find the deployment ID first:
+#   npx wrangler pages deployment list --project-name sunup-finder --environment production
+# After rollback, fix forward: revert the bad change on main, let staging
+# verify it, fast-forward merge to prod, redeploy normally. Do not deploy
+# a fix directly to prod outside the pipeline.
+
+name: Roll back production
+
+on:
+  workflow_dispatch:
+    inputs:
+      deployment_id:
+        description: "Production deployment ID to roll back to"
+        required: true
+      reason:
+        description: "Why (recorded in the run summary)"
+        required: false
+
+permissions:
+  contents: read
+
+jobs:
+  rollback:
+    name: Roll back production
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - name: Check out
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+
+      - name: Roll back via Cloudflare API
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          set -euo pipefail
+          echo "Rolling back to deployment ${{ inputs.deployment_id }} (reason: ${{ inputs.reason }})"
+          curl -fsS -X POST "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/pages/projects/sunup-finder/deployments/${{ inputs.deployment_id }}/rollback" \
+            -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
+            | tee rollback-response.json
+          {
+            echo "## Rollback"
+            echo ""
+            echo "- Deployment rolled back to: \`${{ inputs.deployment_id }}\`"
+            echo "- Reason: ${{ inputs.reason }}"
+            echo "- Run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      # No expected SHA after a rollback — assert liveness + headers and
+      # print the live commit from version.json.
+      - name: Verify what is live
+        run: ./scripts/smoke.sh "https://sunuptee.com"

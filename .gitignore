@@ -1,0 +1,23 @@
+# Secrets and local-only files. The CI secret scan (gitleaks) enforces this
+# in every run, but .gitignore is the first line of defence: a secret that
+# is never committed cannot leak from the repo. Never add a token, key,
+# or password here — or anywhere in this repo.
+.env*
+*.pem
+*.key
+*.p12
+*.pfx
+id_rsa*
+id_ed25519*
+*.token
+*-token.txt
+credentials*
+*secret*
+# Wrangler / Node local state
+.wrangler/
+node_modules/
+# Generated in CI, never committed (stale copies would lie about what is live)
+public/version.json
+# OS / editor noise
+.DS_Store
+*.log

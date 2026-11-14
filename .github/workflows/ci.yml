@@ -1,0 +1,49 @@
+# CI gates — runs on every pull request and every push to main/prod.
+# No secrets, no deploys. A red run here blocks nothing by itself; it is
+# the signal that the same gates in the deploy workflows will also fail.
+# Third-party actions are pinned to full commit SHAs (see README).
+
+name: CI gates
+
+on:
+  pull_request:
+  push:
+    branches: [main, prod]
+
+permissions:
+  contents: read
+
+jobs:
+  gates:
+    name: CI gates
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out (full history — gitleaks scans it all)
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        with:
+          fetch-depth: 0
+
+      - name: Set up Node
+        uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
+        with:
+          node-version: "20"
+
+      - name: Secret scan (gitleaks)
+        uses: gitleaks/gitleaks-action@ff98106e4c7b2bc287b24eaf42907196329070c7 # v2
+        with:
+          args: detect --source . --redact --exit-code 1
+
+      - name: Shell gates (JS syntax, http assets, size, required files, HTML)
+        run: ./scripts/gates.sh
+
+      - name: Link check (static files)
+        uses: lycheeverse/lychee-action@e7477775783ea5526144ba13e8db5eec57747ce8 # v2
+        with:
+          # Exclusions are documented, not silent (see README):
+          # - ezlinksgolf.com / palmbeachnational.com: bot-walled, return 403
+          #   to any automated check (QA-044 / Nov 12 link-check allowlist).
+          # - country-club-of-coral-springs.book.teeitup.com: dead link
+          #   (QA-045) — fix awaits Joe's call; excluded so a known
+          #   pre-existing issue cannot block the pipeline itself.
+          args: --no-progress --format detailed --timeout 20 --max-retries 1 --exclude 'https://colonywestccpc\.ezlinksgolf\.com/.*' --exclude 'https://palmbeachnational\.com/.*' --exclude 'https://country-club-of-coral-springs\.book\.teeitup\.com/.*' public/index.html public/privacy.html public/terms.html
+          fail: true

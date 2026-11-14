@@ -1,0 +1,1 @@
+{"$schema":"https://html-validate.org/schemas/config.json","extends":["html-validate:recommended"],"rules":{"aria-label-misuse":"off","doctype-style":"off","element-required-attributes":"off","empty-heading":"off","long-title":"off","no-inline-style":"off","no-trailing-whitespace":"off","text-content":"off","void-style":"off"}}

@@ -1,0 +1,142 @@
+# Deploy production — push to `prod` deploys to PRODUCTION, only after
+# Joe approves in the GitHub `production` environment.
+#
+# Promotion is moving an already-tested commit to prod — not rebuilding or
+# re-editing something different:
+#   1. Merge main -> prod (fast-forward only). No direct commits to prod.
+#   2. The gates job verifies the prod tip IS the main tip (equality check,
+#      not just ancestry) and re-runs every gate on the exact SHA.
+#   3. The deploy job references `environment: production`. GitHub pauses
+#      it as "Waiting" until Joe (the required reviewer) approves. The job
+#      cannot see the production Cloudflare token until approval passes.
+#   4. Deploy goes out with --branch=prod (production) and the smoke check
+#      runs against sunuptee.com + the .pages.dev production URL, asserting
+#      the build stamp equals the deployed SHA.
+#   5. The deploy is tagged prod-<date>-<short-sha> so `git log prod` +
+#      the tag answers "what is live, when, who approved it?"
+#
+# What it does NOT do:
+# - It never deploys a commit that is not on main, never deploys from a
+#   dashboard, a local machine, or a re-zipped folder.
+# - It never auto-rolls back. Rollback is a human decision via rollback.yml
+#   (or the Cloudflare dashboard), then `git revert` on main.
+# - It never cancels an in-flight prod deploy (cancel-in-progress: false).
+# Third-party actions are pinned to full commit SHAs (see README).
+
+name: Deploy production
+
+on:
+  push:
+    branches: [prod]
+
+permissions:
+  contents: read
+  deployments: write
+
+# One prod deploy at a time; never cancel a prod deploy mid-flight.
+concurrency:
+  group: production
+  cancel-in-progress: false
+
+jobs:
+  gates:
+    name: Fast-forward check + CI gates
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out (full history — the fast-forward check needs it)
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        with:
+          fetch-depth: 0
+
+      - name: Set up Node
+        uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
+        with:
+          node-version: "20"
+
+      # The prod tip must be EXACTLY the main tip. A fast-forward merge of
+      # main into prod leaves prod at main's HEAD; any direct commit on prod
+      # (or a non-fast-forward merge) makes this fail the run.
+      - name: Fast-forward check — prod tip must equal main tip
+        run: |
+          git fetch origin main
+          test "$(git rev-parse HEAD)" = "$(git rev-parse origin/main)" \
+            || { echo "FAIL: prod tip is not the main tip — only fast-forward merges from main may deploy"; exit 1; }
+          echo "OK: prod tip == main tip (${GITHUB_SHA:0:7})"
+
+      - name: Inject build stamp
+        env:
+          ENVIRONMENT: production
+        run: node scripts/build-version.mjs
+
+      - name: Secret scan (gitleaks)
+        uses: gitleaks/gitleaks-action@ff98106e4c7b2bc287b24eaf42907196329070c7 # v2
+        with:
+          args: detect --source . --redact --exit-code 1
+
+      - name: Shell gates (JS syntax, http assets, size, required files, HTML)
+        run: ./scripts/gates.sh
+
+      - name: Link check (static files)
+        uses: lycheeverse/lychee-action@e7477775783ea5526144ba13e8db5eec57747ce8 # v2
+        with:
+          args: --no-progress --format detailed --timeout 20 --max-retries 1 --exclude 'https://colonywestccpc\.ezlinksgolf\.com/.*' --exclude 'https://palmbeachnational\.com/.*' --exclude 'https://country-club-of-coral-springs\.book\.teeitup\.com/.*' public/index.html public/privacy.html public/terms.html
+          fail: true
+
+  deploy:
+    name: Deploy to production (requires Joe's approval)
+    runs-on: ubuntu-latest
+    needs: gates
+    # The `production` environment is where the gate lives. In repo
+    # Settings -> Environments -> production, configure:
+    #   Required reviewers: Joe (1)
+    #   Deployment branches: `prod` only
+    #   Secrets: CLOUDFLARE_API_TOKEN (production-scoped token)
+    #   Variables: CLOUDFLARE_ACCOUNT_ID
+    # GitHub pauses this job as "Waiting" until Joe approves. The job
+    # cannot see the token until approval passes.
+    environment: production
+    permissions:
+      contents: write # for the prod-<date>-<sha> tag push below
+      deployments: write
+    steps:
+      - name: Check out (full history — tagging needs it)
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        with:
+          fetch-depth: 0
+
+      - name: Set up Node
+        uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
+        with:
+          node-version: "20"
+
+      # Re-inject the stamp in this job's checkout (each job gets a fresh
+      # checkout; the stamp is never committed). Same script as the gates job.
+      - name: Inject build stamp
+        env:
+          ENVIRONMENT: production
+        run: node scripts/build-version.mjs
+
+      - name: Deploy to Cloudflare Pages (branch=prod, production)
+        uses: cloudflare/wrangler-action@953926a2e2182532811c01a25e53647d93bf07c0 # v4.1.3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+          gitHubToken: ${{ secrets.GITHUB_TOKEN }}
+          # --branch=prod makes this the PRODUCTION deployment.
+          command: pages deploy ./public --project-name=sunup-finder --branch=prod --commit-hash=${{ github.sha }} --commit-message="${{ github.event.head_commit.message }}"
+
+      - name: Smoke-check the live site
+        run: |
+          ./scripts/smoke.sh "https://sunuptee.com" "${{ github.sha }}"
+          ./scripts/smoke.sh "https://sunup-finder.pages.dev" "${{ github.sha }}"
+
+      # Tag push does not re-trigger this workflow (it only triggers on
+      # pushes to the prod branch, and a tag push is not a branch push).
+      - name: Tag prod-<date>-<short-sha>
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          TAG="prod-$(date -u +%Y-%m-%d)-${GITHUB_SHA:0:7}"
+          git tag "$TAG" "${GITHUB_SHA}"
+          git push origin "$TAG"
+          echo "Tagged $TAG"

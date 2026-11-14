@@ -1,0 +1,30 @@
+# Wrangler config for SunUp (sunup-finder).
+# Minimal on purpose: it pins the project name and the publish directory so
+# a deploy cannot silently target the wrong project or folder. Everything
+# that varies per deploy (branch, commit hash, commit message) is passed
+# explicitly on the `wrangler pages deploy` command line in the workflows —
+# never left to config-file defaults, because flag behaviour varies by
+# Wrangler major version.
+#
+# This file does NOT deploy anything on its own, and it does NOT connect the
+# project to Git. The sunup-finder Pages project was created by Direct
+# Upload (dashboard ZIP); a Direct Upload project cannot be switched to Git
+# integration. GitHub Actions + Wrangler is the deployer; the Cloudflare
+# project stays Direct Upload.
+
+# Cloudflare Pages project name. Must match the live project exactly.
+name = "sunup-finder"
+
+# Directory Wrangler deploys from. The repo layout is:
+#   public/          <- the site (index.html, _headers, privacy.html,
+#                       terms.html, robots.txt, sitemap.xml, .well-known/)
+#   .github/         <- workflows (NOT deployed — outside public/)
+#   scripts/         <- CI helper scripts (NOT deployed)
+# Keeping the site in public/ is what stops the workflows and scripts from
+# being published as public site files.
+pages_build_output_dir = "public"
+
+# No build command: the site is static HTML/CSS/JS with no bundler.
+# The only "build" step is the CI build-stamp injection (scripts/
+# build-version.mjs), which mutates the checked-out copy in the runner —
+# it is never committed back to the repo.
