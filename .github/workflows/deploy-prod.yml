@@ -3,9 +3,11 @@
 #
 # Promotion is moving an already-tested commit to prod — not rebuilding or
 # re-editing something different:
-#   1. Merge main -> prod (fast-forward only). No direct commits to prod.
-#   2. The gates job verifies the prod tip IS the main tip (equality check,
-#      not just ancestry) and re-runs every gate on the exact SHA.
+#   1. Merge main -> prod (rebase merge; a true fast-forward is impossible
+#      because the token cannot update refs). No direct commits to prod.
+#   2. The gates job verifies the prod tree IS the main tree (content
+#      equality, not SHA equality — a rebase rewrites SHAs) and re-runs
+#      every gate on the deployed tree.
 #   3. The deploy job references `environment: production`. GitHub pauses
 #      it as "Waiting" until Joe (the required reviewer) approves. The job
 #      cannot see the production Cloudflare token until approval passes.
@@ -40,10 +42,10 @@ concurrency:
 
 jobs:
   gates:
-    name: Fast-forward check + CI gates
+    name: Content check + CI gates
     runs-on: ubuntu-latest
     steps:
-      - name: Check out (full history — the fast-forward check needs it)
+      - name: Check out (full history — the content check needs it)
         uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
         with:
           fetch-depth: 0
@@ -53,15 +55,16 @@ jobs:
         with:
           node-version: "20"
 
-      # The prod tip must be EXACTLY the main tip. A fast-forward merge of
-      # main into prod leaves prod at main's HEAD; any direct commit on prod
-      # (or a non-fast-forward merge) makes this fail the run.
-      - name: Fast-forward check — prod tip must equal main tip
+      # The prod tree must be EXACTLY the main tree. A rebase merge of main
+      # into prod rewrites commit SHAs, so SHA equality cannot hold — but the
+      # content is identical, and the tree is what gets deployed. Any direct
+      # commit on prod (or a merge that changes content) makes this fail.
+      - name: Content check — prod tree must equal main tree
         run: |
           git fetch origin main
-          test "$(git rev-parse HEAD)" = "$(git rev-parse origin/main)" \
-            || { echo "FAIL: prod tip is not the main tip — only fast-forward merges from main may deploy"; exit 1; }
-          echo "OK: prod tip == main tip (${GITHUB_SHA:0:7})"
+          test "$(git rev-parse HEAD^{tree})" = "$(git rev-parse origin/main^{tree})" \
+            || { echo "FAIL: prod tree is not the main tree — only content identical to main may deploy"; exit 1; }
+          echo "OK: prod tree == main tree (prod ${GITHUB_SHA:0:7}, main $(git rev-parse --short origin/main))"
 
       - name: Inject build stamp
         env:
