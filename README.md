@@ -237,3 +237,5 @@ is the sunuptee.com domain renewal, already paid.
   recommended shape: one job for staging, two jobs for prod, shared
   `scripts/gates.sh`, build stamp + smoke scripts extracted from the
   drafts' inline copies.
+
+Staging test: first pipeline deploy check, Nov 13, 2026.
