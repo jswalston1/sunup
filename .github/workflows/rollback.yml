@@ -1,5 +1,8 @@
 # Roll back production — manual only (workflow_dispatch).
 #
+# DISPATCH FROM THE `prod` BRANCH. The production environment only allows
+# deployments from prod, so a dispatch from main is rejected in seconds.
+#
 # Instant rollback to a previous PRODUCTION deployment via the Cloudflare
 # Pages API. Wrangler has no rollback command, so this workflow is the
 # one-click path; the dashboard (Deployments -> ... -> Rollback) is the
@@ -29,6 +32,12 @@ on:
 permissions:
   contents: read
 
+# One production operation at a time; a rollback must never race a prod
+# deploy. Same group as deploy-prod.yml, never cancel mid-flight.
+concurrency:
+  group: production
+  cancel-in-progress: false
+
 jobs:
   rollback:
     name: Roll back production
@@ -56,7 +65,10 @@ jobs:
             echo "- Run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
           } >> "$GITHUB_STEP_SUMMARY"
 
-      # No expected SHA after a rollback — assert liveness + headers and
-      # print the live commit from version.json.
+      # No expected SHA after a rollback — liveness-only check. Pre-pipeline
+      # builds have no version.json, so the strict smoke check would call a
+      # good rollback a failure. --liveness asserts liveness + headers +
+      # supporting pages and prints the live commit only if version.json
+      # exists.
       - name: Verify what is live
-        run: ./scripts/smoke.sh "https://sunuptee.com"
+        run: ./scripts/smoke.sh --liveness "https://sunuptee.com"
