@@ -1,0 +1,11 @@
+# Gitleaks allowlist — false positives, documented, not silent.
+#
+# The Hand & Foot scorekeeper (public/hand-and-foot/index.html) stores its
+# game state under a localStorage key named 'sunup-handfoot-v1'. That string
+# is a key *name*, not a credential, but gitleaks flags the assignment under
+# generic-api-key. This stopword suppresses only findings containing that
+# exact literal; the secret scan still runs on everything else.
+
+[allowlist]
+description = "Hand & Foot scorekeeper localStorage key name — not a secret"
+stopwords = ["sunup-handfoot-v1"]
