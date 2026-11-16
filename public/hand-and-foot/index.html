@@ -1,0 +1,460 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<meta name="description" content="Hand and Foot card game scorekeeper. Pick your players, then keep score round by round.">
+<title>Hand &amp; Foot Scorekeeper — SunUp</title>
+<style>
+  :root {
+    --bg: #101613;
+    --card: #1a231e;
+    --card-2: #222d27;
+    --ink: #f2ede3;
+    --muted: #9aa79e;
+    --line: #2c3831;
+    --accent: #e8a94e;
+    --accent-ink: #1c1508;
+    --good: #8fce9b;
+    --danger: #e07a6a;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    line-height: 1.5;
+    -webkit-text-size-adjust: 100%;
+  }
+  .wrap { max-width: 920px; margin: 0 auto; padding: 20px 16px 64px; }
+  header { margin-bottom: 20px; }
+  h1 { font-size: 28px; margin: 0 0 4px; letter-spacing: .2px; }
+  .sub { color: var(--muted); margin: 0; font-size: 15px; }
+  .card {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    padding: 20px;
+    margin-bottom: 16px;
+  }
+  h2 { font-size: 18px; margin: 0 0 12px; }
+  .hint { color: var(--muted); font-size: 14px; margin: 0 0 14px; }
+  .stepper { display: flex; align-items: center; gap: 14px; margin-bottom: 16px; }
+  .stepper button {
+    width: 52px; height: 52px; font-size: 26px; line-height: 1;
+    border-radius: 12px; border: 1px solid var(--line);
+    background: var(--card-2); color: var(--ink); cursor: pointer;
+  }
+  .stepper button:active { background: #2e3d34; }
+  .stepper .count { font-size: 30px; font-weight: 700; min-width: 44px; text-align: center; }
+  .stepper .count-label { color: var(--muted); font-size: 14px; }
+  .names { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 10px; margin-bottom: 18px; }
+  .names label { display: block; font-size: 13px; color: var(--muted); margin-bottom: 4px; }
+  .names input {
+    width: 100%; padding: 12px; font-size: 16px;
+    background: var(--bg); color: var(--ink);
+    border: 1px solid var(--line); border-radius: 10px;
+  }
+  .btn {
+    display: inline-block; border: none; cursor: pointer;
+    font-size: 17px; font-weight: 700; border-radius: 12px;
+    padding: 14px 22px; min-height: 52px;
+  }
+  .btn-primary { background: var(--accent); color: var(--accent-ink); }
+  .btn-primary:active { filter: brightness(.92); }
+  .btn-ghost {
+    background: transparent; color: var(--ink);
+    border: 1px solid var(--line); font-weight: 600;
+  }
+  .btn-danger { background: transparent; color: var(--danger); border: 1px solid #4a2b26; font-weight: 600; }
+  .row-actions { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+  .saved { color: var(--muted); font-size: 13px; }
+  .winner-banner {
+    background: rgba(232, 169, 78, 0.14);
+    border: 1px solid var(--accent);
+    color: var(--accent);
+    border-radius: 12px;
+    padding: 14px 16px;
+    font-size: 19px;
+    font-weight: 700;
+    text-align: center;
+    margin-bottom: 16px;
+  }
+  .table-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 12px; }
+  table { border-collapse: collapse; width: 100%; background: var(--card); }
+  th, td { padding: 10px 4px; text-align: center; border-bottom: 1px solid var(--line); }
+  thead th {
+    position: sticky; top: 0; z-index: 2;
+    background: var(--card-2); font-size: 14px;
+  }
+  thead th:first-child, tbody td:first-child, tfoot th:first-child { text-align: left; padding-left: 14px; }
+  tbody td:first-child { color: var(--muted); font-size: 14px; white-space: nowrap; }
+  tfoot th, tfoot td {
+    position: sticky; bottom: 0; z-index: 2;
+    background: var(--card-2); font-size: 18px; font-weight: 700;
+  }
+  .name-input {
+    width: 78px; padding: 8px 4px; font-size: 15px; font-weight: 700; text-align: center;
+    background: transparent; color: var(--ink);
+    border: 1px solid transparent; border-radius: 8px;
+  }
+  .name-input:focus { border-color: var(--accent); outline: none; background: var(--bg); }
+  .score-input {
+    width: 64px; padding: 12px 4px; font-size: 17px; text-align: center;
+    background: var(--bg); color: var(--ink);
+    border: 1px solid var(--line); border-radius: 10px;
+    -moz-appearance: textfield; appearance: textfield;
+  }
+  .score-input::-webkit-outer-spin-button, .score-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+  .score-input:focus { border-color: var(--accent); outline: none; }
+  .score-input.negative { color: var(--danger); }
+  .total-cell.leader { color: var(--accent); }
+  .total-cell.leader::after { content: " ★"; }
+  .del-round {
+    background: transparent; border: none; color: var(--muted);
+    font-size: 18px; line-height: 1; cursor: pointer; padding: 4px 2px;
+    vertical-align: middle;
+  }
+  .del-round:active { color: var(--danger); }
+  .game-bar { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin: 16px 0; }
+  .rounds-note { color: var(--muted); font-size: 14px; }
+  details { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 16px 20px; }
+  details summary { cursor: pointer; font-weight: 700; font-size: 16px; }
+  details ul { margin: 12px 0 4px; padding-left: 20px; }
+  details li { margin-bottom: 6px; }
+  details p { color: var(--muted); font-size: 14px; margin: 12px 0 0; }
+  footer { margin-top: 24px; color: var(--muted); font-size: 13px; text-align: center; }
+  [hidden] { display: none !important; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Hand &amp; Foot Scorekeeper</h1>
+    <p class="sub">Pick your players, then keep score round by round. First to 1,000 wins &mdash; totals update as you type.</p>
+  </header>
+
+  <main>
+    <section class="card" id="setup" aria-label="Game setup">
+      <h2>Who&rsquo;s playing?</h2>
+      <p class="hint">Three players or more. Names can be changed later, right in the score table.</p>
+      <div class="stepper" role="group" aria-label="Number of players">
+        <button type="button" id="count-down" aria-label="Fewer players">&minus;</button>
+        <span class="count" id="count-display" aria-live="polite">4</span>
+        <button type="button" id="count-up" aria-label="More players">+</button>
+        <span class="count-label">players</span>
+      </div>
+      <div class="names" id="name-fields"></div>
+      <button type="button" class="btn btn-primary" id="start-btn">Start game</button>
+    </section>
+
+    <section id="game" hidden aria-label="Score table">
+      <div id="winner-banner" class="winner-banner" hidden role="status"></div>
+      <div class="table-wrap">
+        <table id="score-table">
+          <thead>
+            <tr id="header-row"><th scope="col">Round</th></tr>
+          </thead>
+          <tbody id="rounds-body"></tbody>
+          <tfoot>
+            <tr id="totals-row"><th scope="row">Total</th></tr>
+          </tfoot>
+        </table>
+      </div>
+      <div class="game-bar">
+        <button type="button" class="btn btn-primary" id="add-round-btn">+ Add round</button>
+        <button type="button" class="btn btn-ghost" id="new-game-btn">New game</button>
+        <span class="saved" id="saved-note">Scores are saved on this device.</span>
+      </div>
+      <p class="rounds-note" id="rounds-note"></p>
+    </section>
+
+    <details>
+      <summary>How scoring works</summary>
+      <ul>
+        <li>Each round, your score is the points from your melds and canastas, <strong>minus</strong> the cards left in your hand and foot when the round ends. Scores can be negative &mdash; enter them with a minus sign.</li>
+        <li><strong>Card values:</strong> jokers 50, aces and 2s 20, kings through 8s 10, 7s through 4s and black 3s 5.</li>
+        <li><strong>Canastas:</strong> clean (no wild cards) 500, dirty (with wild cards) 300.</li>
+        <li><strong>Red 3s</strong> are bonus cards &mdash; agree their value before the first round (commonly 500).</li>
+        <li>Some tables add a bonus for going out &mdash; agree it before you start.</li>
+      </ul>
+      <p>House rules vary from table to table. The numbers above are the usual ones; agree any differences before the first deal.</p>
+    </details>
+  </main>
+
+  <footer>Hidden SunUp page &middot; not linked from the finder &middot; scores stay on this device.</footer>
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  var STORAGE_KEY = 'sunup-handfoot-v1';
+  var WIN_TARGET = 1000;
+  var MIN_PLAYERS = 3;
+  var MAX_PLAYERS = 10;
+
+  var setupEl = document.getElementById('setup');
+  var gameEl = document.getElementById('game');
+  var countDisplay = document.getElementById('count-display');
+  var nameFields = document.getElementById('name-fields');
+  var headerRow = document.getElementById('header-row');
+  var roundsBody = document.getElementById('rounds-body');
+  var totalsRow = document.getElementById('totals-row');
+  var roundsNote = document.getElementById('rounds-note');
+  var savedNote = document.getElementById('saved-note');
+  var winnerBanner = document.getElementById('winner-banner');
+
+  var state = load() || { players: [], rounds: [] };
+  var setupCount = state.players.length >= MIN_PLAYERS ? state.players.length : 4;
+  var setupNames = state.players.slice();
+  while (setupNames.length < setupCount) setupNames.push('');
+
+  function load() {
+    try {
+      var raw = window.localStorage.getItem(STORAGE_KEY);
+      if (!raw) return null;
+      var parsed = JSON.parse(raw);
+      if (!parsed || !Array.isArray(parsed.players) || !Array.isArray(parsed.rounds)) return null;
+      if (parsed.players.length < MIN_PLAYERS) return null;
+      return parsed;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  function save() {
+    try {
+      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+      savedNote.textContent = 'Saved on this device.';
+    } catch (e) {
+      savedNote.textContent = 'Could not save on this device — scores will be lost on refresh.';
+    }
+  }
+
+  function defaultName(i) {
+    return 'Player ' + (i + 1);
+  }
+
+  function renderSetup() {
+    countDisplay.textContent = String(setupCount);
+    nameFields.innerHTML = '';
+    for (var i = 0; i < setupCount; i++) {
+      var wrap = document.createElement('div');
+      var label = document.createElement('label');
+      label.setAttribute('for', 'name-' + i);
+      label.textContent = 'Player ' + (i + 1);
+      var input = document.createElement('input');
+      input.type = 'text';
+      input.id = 'name-' + i;
+      input.value = setupNames[i] || '';
+      input.placeholder = defaultName(i);
+      input.maxLength = 20;
+      input.autocomplete = 'off';
+      (function (idx, el) {
+        el.addEventListener('input', function () { setupNames[idx] = el.value; });
+      })(i, input);
+      wrap.appendChild(label);
+      wrap.appendChild(input);
+      nameFields.appendChild(wrap);
+    }
+    document.getElementById('count-down').disabled = setupCount <= MIN_PLAYERS;
+    document.getElementById('count-up').disabled = setupCount >= MAX_PLAYERS;
+  }
+
+  function scoreValue(v) {
+    if (v === null || v === undefined || v === '') return 0;
+    var n = parseInt(v, 10);
+    return isNaN(n) ? 0 : n;
+  }
+
+  function totals() {
+    var sums = [];
+    for (var p = 0; p < state.players.length; p++) sums.push(0);
+    state.rounds.forEach(function (round) {
+      for (var p = 0; p < state.players.length; p++) {
+        sums[p] += scoreValue(round[p]);
+      }
+    });
+    return sums;
+  }
+
+  function renderHeader() {
+    while (headerRow.children.length > 1) headerRow.removeChild(headerRow.lastChild);
+    state.players.forEach(function (name, p) {
+      var th = document.createElement('th');
+      th.scope = 'col';
+      var input = document.createElement('input');
+      input.type = 'text';
+      input.className = 'name-input';
+      input.value = name;
+      input.maxLength = 20;
+      input.autocomplete = 'off';
+      input.setAttribute('aria-label', 'Name of player ' + (p + 1));
+      input.addEventListener('input', function () {
+        state.players[p] = input.value.trim() === '' ? defaultName(p) : input.value;
+        save();
+      });
+      th.appendChild(input);
+      headerRow.appendChild(th);
+    });
+  }
+
+  function renderRounds() {
+    roundsBody.innerHTML = '';
+    state.rounds.forEach(function (round, r) {
+      var tr = document.createElement('tr');
+      var num = document.createElement('td');
+      num.textContent = 'Round ' + (r + 1) + ' ';
+      var delBtn = document.createElement('button');
+      delBtn.type = 'button';
+      delBtn.className = 'del-round';
+      delBtn.textContent = '×';
+      delBtn.setAttribute('aria-label', 'Delete round ' + (r + 1));
+      delBtn.title = 'Delete round ' + (r + 1);
+      (function (rr) {
+        delBtn.addEventListener('click', function () {
+          if (state.rounds.length <= 1) return;
+          state.rounds.splice(rr, 1);
+          save();
+          renderRounds();
+          renderTotals();
+        });
+      })(r);
+      num.appendChild(delBtn);
+      tr.appendChild(num);
+      for (var p = 0; p < state.players.length; p++) {
+        var td = document.createElement('td');
+        var input = document.createElement('input');
+        input.type = 'number';
+        input.inputMode = 'numeric';
+        input.className = 'score-input';
+        input.setAttribute('aria-label', 'Round ' + (r + 1) + ' score for ' + state.players[p]);
+        var val = round[p];
+        if (val !== null && val !== undefined && val !== '') input.value = String(val);
+        (function (rr, pp, el) {
+          el.addEventListener('input', function () {
+            var raw = el.value;
+            state.rounds[rr][pp] = raw === '' ? null : parseInt(raw, 10);
+            el.classList.toggle('negative', scoreValue(raw) < 0);
+            renderTotals();
+            save();
+          });
+        })(r, p, input);
+        if (scoreValue(val) < 0) input.classList.add('negative');
+        td.appendChild(input);
+        tr.appendChild(td);
+      }
+      roundsBody.appendChild(tr);
+    });
+    roundsNote.textContent = state.rounds.length === 1
+      ? '1 round so far.'
+      : state.rounds.length + ' rounds so far.';
+  }
+
+  function fmt(n) {
+    return n.toLocaleString('en-US');
+  }
+
+  function renderWinner(sums) {
+    var best = -Infinity;
+    sums.forEach(function (s) { if (s >= WIN_TARGET && s > best) best = s; });
+    if (best === -Infinity) {
+      winnerBanner.hidden = true;
+      winnerBanner.textContent = '';
+      return;
+    }
+    var winners = [];
+    sums.forEach(function (s, i) { if (s === best) winners.push(state.players[i]); });
+    if (winners.length === 1) {
+      winnerBanner.textContent = '🏆 ' + winners[0] + ' wins with ' + fmt(best) + ' points!';
+    } else {
+      winnerBanner.textContent = '🏆 It\u2019s a tie! ' + winners.join(' and ') + ' — ' + fmt(best) + ' points each!';
+    }
+    winnerBanner.hidden = false;
+  }
+
+  function renderTotals() {
+    while (totalsRow.children.length > 1) totalsRow.removeChild(totalsRow.lastChild);
+    var sums = totals();
+    var best = Math.max.apply(null, sums);
+    var anyScore = state.rounds.some(function (round) {
+      return round.some(function (v) { return v !== null && v !== undefined && v !== ''; });
+    });
+    sums.forEach(function (sum) {
+      var td = document.createElement('td');
+      td.className = 'total-cell';
+      td.textContent = String(sum);
+      if (anyScore && sum === best) td.classList.add('leader');
+      totalsRow.appendChild(td);
+    });
+    renderWinner(sums);
+  }
+
+  function renderGame() {
+    renderHeader();
+    renderRounds();
+    renderTotals();
+    setupEl.hidden = true;
+    gameEl.hidden = false;
+  }
+
+  function showSetup() {
+    setupEl.hidden = false;
+    gameEl.hidden = true;
+    renderSetup();
+  }
+
+  document.getElementById('count-down').addEventListener('click', function () {
+    if (setupCount > MIN_PLAYERS) { setupCount--; renderSetup(); }
+  });
+  document.getElementById('count-up').addEventListener('click', function () {
+    if (setupCount < MAX_PLAYERS) { setupCount++; renderSetup(); }
+  });
+
+  document.getElementById('start-btn').addEventListener('click', function () {
+    var names = [];
+    for (var i = 0; i < setupCount; i++) {
+      var n = (setupNames[i] || '').trim();
+      names.push(n === '' ? defaultName(i) : n);
+    }
+    var firstRound = [];
+    for (var j = 0; j < setupCount; j++) firstRound.push(null);
+    state = { players: names, rounds: [firstRound] };
+    save();
+    renderGame();
+    var firstInput = roundsBody.querySelector('.score-input');
+    if (firstInput) firstInput.focus();
+  });
+
+  document.getElementById('add-round-btn').addEventListener('click', function () {
+    var round = [];
+    for (var i = 0; i < state.players.length; i++) round.push(null);
+    state.rounds.push(round);
+    save();
+    renderRounds();
+    renderTotals();
+    var inputs = roundsBody.querySelectorAll('tr:last-child .score-input');
+    if (inputs.length > 0) inputs[0].focus();
+  });
+
+  document.getElementById('new-game-btn').addEventListener('click', function () {
+    if (!window.confirm('Start a new game? This clears all players and scores.')) return;
+    try { window.localStorage.removeItem(STORAGE_KEY); } catch (e) { /* ignore */ }
+    state = { players: [], rounds: [] };
+    setupCount = 4;
+    setupNames = [];
+    showSetup();
+  });
+
+  if (state.players.length >= MIN_PLAYERS && state.rounds.length > 0) {
+    renderGame();
+  } else {
+    showSetup();
+  }
+})();
+</script>
+</body>
+</html>
